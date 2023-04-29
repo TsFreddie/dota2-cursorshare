@@ -204,6 +204,7 @@ type UpdateCallback = (time: number, deltaTime: number) => void;
 const frameEvents: { [key: string]: UpdateCallback } = {};
 let lastTime = 0;
 const runFrames = () => {
+    $.GetContextPanel().style.visibility = 'visible';
     const time = Game.GetGameTime();
     const deltaTime = Game.GetGameFrameTime();
     for (const key in frameEvents) {
