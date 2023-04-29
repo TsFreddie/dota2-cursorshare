@@ -1,0 +1,14 @@
+.SharedCursor {
+    width: 32px;
+    height: 32px;
+    background-image: url("s2r://panorama/images/cursor/cursor_default_png.vtex");
+}
+
+.Fullscreen {
+    width: 100%;
+    height: 100%;
+}
+
+.DebugText {
+    font-size: 50px;
+}

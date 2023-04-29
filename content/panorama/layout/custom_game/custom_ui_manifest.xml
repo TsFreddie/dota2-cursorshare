@@ -2,7 +2,12 @@
     <scripts>
         <include src="file://{resources}/scripts/custom_game/manifest.js" />
     </scripts>
-    <Panel>
+    <styles>
+        <include src="file://{resources}/styles/custom_game/manifest.css" />
+    </styles>
+
+    <Panel class="Fullscreen">
+        <Label text="Loading..." class="DebugText" id="debugText" />
         <CustomUIElement type="Hud" layoutfile="file://{resources}/layout/custom_game/hud.xml" />
     </Panel>
 </root>
