@@ -7,7 +7,6 @@
     </styles>
 
     <Panel class="Fullscreen">
-        <Label text="Loading..." class="DebugText" id="debugText" />
         <CustomUIElement type="Hud" layoutfile="file://{resources}/layout/custom_game/hud.xml" />
     </Panel>
 </root>
