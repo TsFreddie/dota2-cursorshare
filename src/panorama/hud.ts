@@ -1,2 +1,0 @@
-$.Msg("Hud panorama loaded");
-

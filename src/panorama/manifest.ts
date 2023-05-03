@@ -349,7 +349,7 @@ const CursorShare = () => {
         c: lastWorldPos,
         m: "w",
     };
-    GameEvents.SendCustomGameEventToAllClients("ce", msg);
+    GameEvents.SendCustomGameEventToServer("ce", msg);
 };
 
 CursorShare();
