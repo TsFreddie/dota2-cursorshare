@@ -15,136 +15,68 @@ interface InterpolatedSnapshot {
 }
 
 class Vault {
-    private _vault: Snapshot[] = [];
-    private _vaultSize: number = 120;
+    private vault: Snapshot[] = [];
+    private vaultSize: number = 120;
 
-    /** Clear this Vault */
-    clear(): void {
-        this._vault = [];
-    }
-
-    /** Get the latest snapshot */
-    get(): Snapshot | undefined;
-    /** Get the two snapshots around a specific time */
-    get(time: number): { older: Snapshot; newer: Snapshot } | undefined;
-    /** Get the closest snapshot to e specific time */
-    get(time: number, closest: boolean): Snapshot | undefined;
-
-    get(time?: number, closest?: boolean) {
-        // zero index is the newest snapshot
-        const sorted = this._vault.sort((a, b) => b.time - a.time);
-        if (typeof time === "undefined") return sorted[0];
-
+    get(time: number) {
+        const sorted = this.vault.sort((a, b) => b.time - a.time);
         for (let i = 0; i < sorted.length; i++) {
             const snap = sorted[i];
             if (snap.time <= time) {
                 const snaps = { older: sorted[i], newer: sorted[i - 1] };
-                if (closest) {
-                    const older = Math.abs(time - snaps.older.time);
-                    const newer = Math.abs(time - snaps.newer?.time);
-                    if (isNaN(newer)) return snaps.older;
-                    else if (newer <= older) return snaps.older;
-                    else return snaps.newer;
-                }
                 return snaps;
             }
         }
         return;
     }
 
-    /** Add a snapshot to the vault. */
+    clear() {
+        this.vault = [];
+    }
+
     add(snapshot: Snapshot) {
-        if (this._vault.length > this._vaultSize - 1) {
-            // remove the oldest snapshot
-            this._vault.sort((a, b) => a.time - b.time).shift();
+        if (this.vault.length > this.vaultSize - 1) {
+            this.vault.sort((a, b) => a.time - b.time).shift();
         }
-        this._vault.push(snapshot);
-    }
-
-    /** Get the current capacity (size) of the vault. */
-    public get size() {
-        return this._vault.length;
-    }
-
-    /** Set the max capacity (size) of the vault. */
-    setMaxSize(size: number) {
-        this._vaultSize = size;
-    }
-
-    /** Get the max capacity (size) of the vault. */
-    getMaxSize() {
-        return this._vaultSize;
+        this.vault.push(snapshot);
     }
 }
 
 class SnapshotInterpolation {
-    /** Access the vault. */
     public vault = new Vault();
-    private _interpolationBuffer = (1000 / 30) * 2;
-    private _timeOffset = -1;
-    /** The current server time based on the current snapshot interpolation. */
+    private buffer = (1 / 30) * 2;
+    private offset = -1;
     public serverTime = 0;
 
     public get interpolationBuffer() {
         return {
-            /** Get the Interpolation Buffer time in milliseconds. */
-            get: () => this._interpolationBuffer,
-            /** Set the Interpolation Buffer time in milliseconds. */
-            set: (milliseconds: number) => {
-                this._interpolationBuffer = milliseconds;
+            get: () => this.buffer,
+            set: (seconds: number) => {
+                this.buffer = seconds;
             },
         };
     }
 
-    public static Now() {
-        return Game.GetGameTime() * 1000;
-    }
-
-    public get timeOffset() {
-        return this._timeOffset;
-    }
-
-    public get snapshot() {
-        return {
-            create: (state: CursorPos): Snapshot =>
-                SnapshotInterpolation.CreateSnapshot(state),
-            add: (snapshot: Snapshot): void => this.addSnapshot(snapshot),
-        };
-    }
-
-    public static CreateSnapshot(state: CursorPos): Snapshot {
-        return {
-            time: SnapshotInterpolation.Now(),
-            state: state,
-        };
-    }
-
-    private addSnapshot(snapshot: Snapshot): void {
-        const timeNow = SnapshotInterpolation.Now();
+    public add(snapshot: Snapshot): void {
+        const timeNow = Game.GetGameTime();
         const timeSnapshot = snapshot.time;
 
-        if (this._timeOffset === -1) {
-            this._timeOffset = timeNow - timeSnapshot;
+        if (this.offset === -1) {
+            this.offset = timeNow - timeSnapshot;
         }
 
-        // correct time offset
         const timeOffset = timeNow - timeSnapshot;
-        const timeDifference = Math.abs(this._timeOffset - timeOffset);
-        if (timeDifference > 50) this._timeOffset = timeOffset;
+        const timeDifference = Math.abs(this.offset - timeOffset);
+        if (timeDifference > 50) this.offset = timeOffset;
 
         this.vault.add(snapshot);
     }
 
-    /** Interpolate between two snapshots give the percentage or time. */
-    public interpolate(
-        snapshotA: Snapshot,
-        snapshotB: Snapshot,
-        timeOrPercentage: number
-    ): InterpolatedSnapshot {
-        return this._interpolate(snapshotA, snapshotB, timeOrPercentage);
+    public reset() {
+        this.vault.clear();
     }
 
-    private _interpolate(
+    private interpolate(
         snapshotA: Snapshot,
         snapshotB: Snapshot,
         timeOrPercentage: number
@@ -183,11 +115,8 @@ class SnapshotInterpolation {
     }
 
     /** Get the calculated interpolation on the client. */
-    public calcInterpolation(): InterpolatedSnapshot | undefined {
-        const serverTime =
-            SnapshotInterpolation.Now() -
-            this._timeOffset -
-            this._interpolationBuffer;
+    public calcInterpolation(time: number): InterpolatedSnapshot | undefined {
+        const serverTime = time - this.offset - this.buffer;
 
         const shots = this.vault.get(serverTime);
         if (!shots) return;
@@ -195,7 +124,7 @@ class SnapshotInterpolation {
         const { older, newer } = shots;
         if (!older || !newer) return;
 
-        return this._interpolate(newer, older, serverTime);
+        return this.interpolate(newer, older, serverTime);
     }
 }
 
@@ -204,7 +133,7 @@ type UpdateCallback = (time: number, deltaTime: number) => void;
 const frameEvents: { [key: string]: UpdateCallback } = {};
 let lastTime = 0;
 const runFrames = () => {
-    $.GetContextPanel().style.visibility = 'visible';
+    $.GetContextPanel().style.visibility = "visible";
     const time = Game.GetGameTime();
     const deltaTime = Game.GetGameFrameTime();
     for (const key in frameEvents) {
@@ -259,10 +188,14 @@ const vlen3 = (a: CursorPos): number =>
 
 class CursorInstance {
     private id: PlayerID;
+    private color: number;
     private cursor: Panel;
     private snapshotInterpolation: SnapshotInterpolation;
+    private lastMode: "s" | "w";
 
     constructor(id: PlayerID) {
+        this.lastMode = "s";
+        this.color = 0;
         this.id = id;
         this.cursor = $.CreatePanel(
             "Panel",
@@ -270,10 +203,35 @@ class CursorInstance {
             `SharedCursor_${id}`
         );
         this.cursor.AddClass("SharedCursor");
+        this.cursor.hittest = false;
 
-        const color = Players.GetPlayerColor(id);
         const enemy =
             Players.GetTeam(id) !== Players.GetTeam(Players.GetLocalPlayer());
+        this.snapshotInterpolation = new SnapshotInterpolation();
+        if (enemy) {
+            this.cursor.AddClass("Enemy");
+        }
+
+        frameEvents[id] = (time, deltaTime) => {
+            this.draw(time, deltaTime);
+        };
+    }
+
+    public update(x: number, y: number, z: number, t: number, m: "s" | "w") {
+        if (m != this.lastMode) {
+            this.lastMode = m;
+            this.snapshotInterpolation.reset();
+        }
+
+        const pos: CursorPos = [x, y, z];
+        this.snapshotInterpolation.add({
+            time: t,
+            state: pos,
+        });
+
+        const color = Players.GetPlayerColor(this.id);
+
+        if (color === this.color) return;
         const ABGR = color.toString(16);
         const RGBA =
             ABGR[6] +
@@ -285,26 +243,10 @@ class CursorInstance {
             ABGR[0] +
             ABGR[1];
         this.cursor.style.washColor = `#${RGBA}`;
-        this.snapshotInterpolation = new SnapshotInterpolation();
-        if (enemy) {
-            this.cursor.AddClass("Enemy");
-        }
-
-        frameEvents[id] = (time, deltaTime) => {
-            this.draw(time, deltaTime);
-        };
-    }
-
-    public update(x: number, y: number, z: number, t: number) {
-        const pos: CursorPos = [x, y, z];
-        this.snapshotInterpolation.snapshot.add({
-            time: t * 1000,
-            state: pos,
-        });
     }
 
     public draw(time: number, deltaTime: number) {
-        const result = this.snapshotInterpolation.calcInterpolation();
+        const result = this.snapshotInterpolation.calcInterpolation(time);
 
         if (result) {
             const sx = Game.WorldToScreenX(
@@ -317,10 +259,20 @@ class CursorInstance {
                 result.state[1],
                 result.state[2]
             );
-            const scaleFactor = 1080 / Game.GetScreenHeight();
+
+            const screenWidth = Game.GetScreenWidth();
+            const screenHeight = Game.GetScreenHeight();
+
+            const scaleFactor = 1080 / screenHeight;
             const x = sx * scaleFactor;
             const y = sy * scaleFactor;
+
             this.cursor.style.position = `${x}px ${y}px 0px`;
+            if (x < 0 || x > screenWidth || y < 0 || y > screenHeight) {
+                this.cursor.style.visibility = "collapse";
+            } else {
+                this.cursor.style.visibility = "visible";
+            }
         }
     }
 
@@ -337,28 +289,35 @@ const cursors: { [id: number]: CursorInstance } = {};
 
 const CursorShare = () => {
     $.Schedule(1 / 30, CursorShare);
+    const screenMode = Game.GameStateIsBefore(
+        DOTA_GameState.DOTA_GAMERULES_STATE_GAME_IN_PROGRESS
+    );
+
     const cursor = GameUI.GetCursorPosition();
     const worldPos = GameUI.GetScreenWorldPosition(cursor);
     if (worldPos) {
         lastWorldPos = worldPos;
     }
 
+    $.Msg(GameUI.GetClickBehaviors());
+
     const msg: CursorEvent = {
         i: Players.GetLocalPlayer(),
         t: Game.GetGameTime(),
         c: lastWorldPos,
-        m: "w",
+        m: screenMode ? "s" : "w",
     };
-    GameEvents.SendCustomGameEventToServer("ce", msg);
+    GameEvents.SendCustomGameEventToAllClients("ce", msg);
 };
 
 CursorShare();
 
 GameEvents.Subscribe("ce", (ev) => {
     if (ev.i < 0) return;
+    // if (ev.i == Players.GetLocalPlayer()) return;
     if (!cursors[ev.i]) {
         cursors[ev.i] = new CursorInstance(ev.i);
     }
     const cursor = cursors[ev.i];
-    cursor.update(ev.c[0], ev.c[1], ev.c[2], ev.t);
+    cursor.update(ev.c[0], ev.c[1], ev.c[2], ev.t, ev.m);
 });

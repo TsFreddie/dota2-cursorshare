@@ -20,5 +20,5 @@ interface CursorEvent {
     i: PlayerID;
     t: number;
     c: [number, number, number];
-    m: "s" | "w" | "x";
+    m: "s" | "w";
 }

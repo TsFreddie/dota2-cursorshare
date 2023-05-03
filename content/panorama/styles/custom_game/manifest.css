@@ -2,6 +2,7 @@
     width: 32px;
     height: 32px;
     background-image: url("s2r://panorama/images/cursor/cursor_default_png.vtex");
+    background-size: contain;
 }
 
 .SharedCursor.Enemy {
