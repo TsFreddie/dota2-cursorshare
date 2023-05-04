@@ -3,7 +3,6 @@
   "TeamCount" "10"
   "maps"      "dota"
   "IsPlayable"  "1"
-  "EnablePickRules"		"1"
 	"PenaltiesEnabled"		"1"
   "HeroGuidesSupported"	"1"
   "dota"

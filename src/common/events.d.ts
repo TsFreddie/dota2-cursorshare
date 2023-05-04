@@ -14,6 +14,7 @@
 // To declare an event for use, add it to this table with the type of its data
 interface CustomGameEventDeclarations {
     ce: CursorEvent;
+    ae: ActionEvent;
 }
 
 interface CursorEvent {
@@ -21,4 +22,9 @@ interface CursorEvent {
     t: number;
     c: [number, number, number];
     m: "s" | "w";
+}
+
+interface ActionEvent {
+    i: PlayerID;
+    c: [number, number, number];
 }

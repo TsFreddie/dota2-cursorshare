@@ -247,31 +247,53 @@ class CursorInstance {
 
     public draw(time: number, deltaTime: number) {
         const result = this.snapshotInterpolation.calcInterpolation(time);
+        if (this.lastMode === "s") {
+            if (result) {
+                const originalX = result.state[0];
+                const y = result.state[1];
 
-        if (result) {
-            const sx = Game.WorldToScreenX(
-                result.state[0],
-                result.state[1],
-                result.state[2]
-            );
-            const sy = Game.WorldToScreenY(
-                result.state[0],
-                result.state[1],
-                result.state[2]
-            );
+                const screenHeight = Game.GetScreenHeight();
+                const screenWidth = Game.GetScreenWidth();
 
-            const screenWidth = Game.GetScreenWidth();
-            const screenHeight = Game.GetScreenHeight();
+                const scaleFactor = 1080 / screenHeight;
+                const scaledWidth = screenWidth * scaleFactor;
 
-            const scaleFactor = 1080 / screenHeight;
-            const x = sx * scaleFactor;
-            const y = sy * scaleFactor;
+                const x = originalX - (1920 - scaledWidth) / 2;
 
-            this.cursor.style.position = `${x}px ${y}px 0px`;
-            if (x < 0 || x > screenWidth || y < 0 || y > screenHeight) {
-                this.cursor.style.visibility = "collapse";
-            } else {
-                this.cursor.style.visibility = "visible";
+                this.cursor.style.position = `${x}px ${y}px 0px`;
+                if (x < -50 || x > screenWidth || y < -50 || y > screenHeight) {
+                    this.cursor.style.visibility = "collapse";
+                } else {
+                    this.cursor.style.visibility = "visible";
+                }
+            }
+        } else if (this.lastMode === "w") {
+            if (result) {
+                const sx = Game.WorldToScreenX(
+                    result.state[0],
+                    result.state[1],
+                    result.state[2]
+                );
+                const sy = Game.WorldToScreenY(
+                    result.state[0],
+                    result.state[1],
+                    result.state[2]
+                );
+
+                const screenWidth = Game.GetScreenWidth();
+                const screenHeight = Game.GetScreenHeight();
+
+                const scaleFactor = 1080 / screenHeight;
+                const x = sx * scaleFactor;
+                const y = sy * scaleFactor;
+                const scaledWidth = screenWidth * scaleFactor;
+
+                this.cursor.style.position = `${x}px ${y}px 0px`;
+                if (x < -50 || x > scaledWidth || y < -50 || y > 1080) {
+                    this.cursor.style.visibility = "collapse";
+                } else {
+                    this.cursor.style.visibility = "visible";
+                }
             }
         }
     }
@@ -283,41 +305,103 @@ class CursorInstance {
 }
 
 let lastWorldPos: CursorPos = [0, 0, 0];
-let lastScreenPos: CursorPos = [0, 0, 0];
 
 const cursors: { [id: number]: CursorInstance } = {};
 
 const CursorShare = () => {
     $.Schedule(1 / 30, CursorShare);
     const screenMode = Game.GameStateIsBefore(
-        DOTA_GameState.DOTA_GAMERULES_STATE_GAME_IN_PROGRESS
+        DOTA_GameState.DOTA_GAMERULES_STATE_PRE_GAME
     );
 
-    const cursor = GameUI.GetCursorPosition();
-    const worldPos = GameUI.GetScreenWorldPosition(cursor);
-    if (worldPos) {
-        lastWorldPos = worldPos;
+    if (screenMode) {
+        const cursor = GameUI.GetCursorPosition();
+
+        const screenHeight = Game.GetScreenHeight();
+        const screenWidth = Game.GetScreenWidth();
+
+        const scaleFactor = 1080 / screenHeight;
+        const scaledWidth = screenWidth * scaleFactor;
+        const scaledX = cursor[0] * scaleFactor;
+        const x = scaledX + (1920 - scaledWidth) / 2;
+        const y = cursor[1] * scaleFactor;
+
+        const msg: CursorEvent = {
+            i: Players.GetLocalPlayer(),
+            t: Game.GetGameTime(),
+            c: [x, y, 0],
+            m: "s",
+        };
+
+        GameEvents.SendCustomGameEventToAllClients("ce", msg);
+    } else {
+        const cursor = GameUI.GetCursorPosition();
+        const worldPos = GameUI.GetScreenWorldPosition(cursor);
+        if (worldPos) {
+            lastWorldPos = worldPos;
+        }
+
+        const msg: CursorEvent = {
+            i: Players.GetLocalPlayer(),
+            t: Game.GetGameTime(),
+            c: lastWorldPos,
+            m: "w",
+        };
+        GameEvents.SendCustomGameEventToAllClients("ce", msg);
     }
-
-    $.Msg(GameUI.GetClickBehaviors());
-
-    const msg: CursorEvent = {
-        i: Players.GetLocalPlayer(),
-        t: Game.GetGameTime(),
-        c: lastWorldPos,
-        m: screenMode ? "s" : "w",
-    };
-    GameEvents.SendCustomGameEventToAllClients("ce", msg);
 };
 
 CursorShare();
 
 GameEvents.Subscribe("ce", (ev) => {
     if (ev.i < 0) return;
-    // if (ev.i == Players.GetLocalPlayer()) return;
+    if (ev.i == Players.GetLocalPlayer() && !Game.IsInToolsMode()) return;
     if (!cursors[ev.i]) {
         cursors[ev.i] = new CursorInstance(ev.i);
     }
     const cursor = cursors[ev.i];
     cursor.update(ev.c[0], ev.c[1], ev.c[2], ev.t, ev.m);
 });
+
+GameEvents.Subscribe("ae", (ev) => {
+    $.Msg(ev);
+});
+
+GameEvents.Subscribe("dota_player_update_query_unit", (ev) => {
+    $.Msg(ev);
+});
+
+const mouseCallback = (
+    ev: MouseEvent,
+    arg: MouseButton | MouseScrollDirection
+) => {
+    $.Msg("clicked");
+    if (ev == "pressed") {
+        const behaviour = GameUI.GetClickBehaviors();
+        if (
+            arg == 0 &&
+            !(behaviour != CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_NONE &&
+            behaviour != CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_LEARN_ABILITY &&
+            behaviour != CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_RADAR)
+        ) {
+            return false;
+        }
+
+        if (arg == 1 && behaviour != CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_NONE) {
+            return false;
+        }
+
+        const cursor = GameUI.GetCursorPosition();
+        const worldPos = GameUI.GetScreenWorldPosition(cursor);
+        if (!worldPos) return false;
+
+        const msg: ActionEvent = {
+            i: Players.GetLocalPlayer(),
+            c: lastWorldPos,
+        };
+        GameEvents.SendCustomGameEventToAllClients("ae", msg);
+    }
+    return false;
+};
+
+GameUI.SetMouseCallback(mouseCallback);
