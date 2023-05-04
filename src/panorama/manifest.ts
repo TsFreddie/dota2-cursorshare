@@ -364,32 +364,48 @@ GameEvents.Subscribe("ce", (ev) => {
 });
 
 GameEvents.Subscribe("ae", (ev) => {
-    $.Msg(ev);
-});
+    var particles = Particles.CreateParticle(
+        "particles/ui_mouseactions/clicked_moveto.vpcf",
+        ParticleAttachment_t.PATTACH_WORLDORIGIN,
+        Players.GetPlayerHeroEntityIndex(Players.GetLocalPlayer())
+    );
+    Particles.SetParticleControl(particles, 0, [ev.c[0], ev.c[1], ev.c[2]]);
+    const color = Players.GetPlayerColor(ev.i);
+    const b = (color >> 16) & 0xff;
+    const g = (color >> 8) & 0xff;
+    const r = color & 0xff;
 
-GameEvents.Subscribe("dota_player_update_query_unit", (ev) => {
-    $.Msg(ev);
+    Particles.SetParticleControl(particles, 1, [r, g, b]);
+    $.Schedule(2, () => {
+        Particles.DestroyParticleEffect(particles, false);
+        Particles.ReleaseParticleIndex(particles);
+    })
+ 
+    // Particles.SetParticleAlwaysSimulate(particles);
 });
 
 const mouseCallback = (
     ev: MouseEvent,
     arg: MouseButton | MouseScrollDirection
 ) => {
-    $.Msg("clicked");
     if (ev == "pressed") {
+        if (arg > 1 || arg < 0) return false;
         const behaviour = GameUI.GetClickBehaviors();
-        if (
-            arg == 0 &&
-            !(behaviour != CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_NONE &&
-            behaviour != CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_LEARN_ABILITY &&
-            behaviour != CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_RADAR)
-        ) {
-            return false;
-        }
+        // if (
+        //     arg == 0 &&
+        //     !(
+        //         behaviour != CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_NONE &&
+        //         behaviour !=
+        //             CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_LEARN_ABILITY &&
+        //         behaviour != CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_RADAR
+        //     )
+        // ) {
+        //     return false;
+        // }
 
-        if (arg == 1 && behaviour != CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_NONE) {
-            return false;
-        }
+        // if (arg == 1 && behaviour != CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_NONE) {
+        //     return false;
+        // }
 
         const cursor = GameUI.GetCursorPosition();
         const worldPos = GameUI.GetScreenWorldPosition(cursor);
