@@ -1,0 +1,8 @@
+"lang"
+{
+  "Language" "tchinese"
+  "Tokens"
+  {
+    "addon_game_name" "指針共享"
+  }
+}

@@ -1,0 +1,8 @@
+"lang"
+{
+  "Language" "japanese"
+  "Tokens"
+  {
+    "addon_game_name" "カーソル共有"
+  }
+}

@@ -1,0 +1,8 @@
+"lang"
+{
+  "Language" "korean"
+  "Tokens"
+  {
+    "addon_game_name" "커서 공유"
+  }
+}
