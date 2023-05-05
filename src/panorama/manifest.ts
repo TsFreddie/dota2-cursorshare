@@ -192,8 +192,10 @@ class CursorInstance {
     private cursor: Panel;
     private snapshotInterpolation: SnapshotInterpolation;
     private lastMode: "s" | "w";
+    private enemy: boolean;
 
     constructor(id: PlayerID) {
+        this.snapshotInterpolation = new SnapshotInterpolation();
         this.lastMode = "s";
         this.color = 0;
         this.id = id;
@@ -205,11 +207,10 @@ class CursorInstance {
         this.cursor.AddClass("SharedCursor");
         this.cursor.hittest = false;
 
-        const enemy =
+        this.enemy =
             Players.GetTeam(id) !== Players.GetTeam(Players.GetLocalPlayer());
-        this.snapshotInterpolation = new SnapshotInterpolation();
-        if (enemy) {
-            this.cursor.AddClass("Enemy");
+        if (this.enemy) {
+            this.cursor.SetHasClass("Enemy", this.enemy);
         }
 
         frameEvents[id] = (time, deltaTime) => {
@@ -231,18 +232,29 @@ class CursorInstance {
 
         const color = Players.GetPlayerColor(this.id);
 
-        if (color === this.color) return;
-        const ABGR = color.toString(16);
-        const RGBA =
-            ABGR[6] +
-            ABGR[7] +
-            ABGR[4] +
-            ABGR[5] +
-            ABGR[2] +
-            ABGR[3] +
-            ABGR[0] +
-            ABGR[1];
-        this.cursor.style.washColor = `#${RGBA}`;
+        if (color !== this.color) {
+            this.color = color;
+            const ABGR = color.toString(16);
+            const RGBA =
+                ABGR[6] +
+                ABGR[7] +
+                ABGR[4] +
+                ABGR[5] +
+                ABGR[2] +
+                ABGR[3] +
+                ABGR[0] +
+                ABGR[1];
+            this.cursor.style.washColor = `#${RGBA}`;
+        }
+
+        const enemy =
+            Players.GetTeam(this.id) !==
+            Players.GetTeam(Players.GetLocalPlayer());
+
+        if (this.enemy !== enemy) {
+            this.enemy = enemy;
+            this.cursor.SetHasClass("Enemy", enemy);
+        }
     }
 
     public draw(time: number, deltaTime: number) {
@@ -364,12 +376,14 @@ GameEvents.Subscribe("ce", (ev) => {
 });
 
 GameEvents.Subscribe("ae", (ev) => {
+    if (ev.i == Players.GetLocalPlayer() && !Game.IsInToolsMode()) return;
+
     var particles = Particles.CreateParticle(
-        "particles/ui_mouseactions/clicked_moveto.vpcf",
+        "particles/clicked_custom.vpcf",
         ParticleAttachment_t.PATTACH_WORLDORIGIN,
         Players.GetPlayerHeroEntityIndex(Players.GetLocalPlayer())
     );
-    Particles.SetParticleControl(particles, 0, [ev.c[0], ev.c[1], ev.c[2]]);
+    Particles.SetParticleControl(particles, 0, [ev.c[0], ev.c[1], ev.c[2] + 5]);
     const color = Players.GetPlayerColor(ev.i);
     const b = (color >> 16) & 0xff;
     const g = (color >> 8) & 0xff;
@@ -379,9 +393,7 @@ GameEvents.Subscribe("ae", (ev) => {
     $.Schedule(2, () => {
         Particles.DestroyParticleEffect(particles, false);
         Particles.ReleaseParticleIndex(particles);
-    })
- 
-    // Particles.SetParticleAlwaysSimulate(particles);
+    });
 });
 
 const mouseCallback = (
@@ -391,21 +403,21 @@ const mouseCallback = (
     if (ev == "pressed") {
         if (arg > 1 || arg < 0) return false;
         const behaviour = GameUI.GetClickBehaviors();
-        // if (
-        //     arg == 0 &&
-        //     !(
-        //         behaviour != CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_NONE &&
-        //         behaviour !=
-        //             CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_LEARN_ABILITY &&
-        //         behaviour != CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_RADAR
-        //     )
-        // ) {
-        //     return false;
-        // }
+        if (
+            arg == 0 &&
+            !(
+                behaviour != CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_NONE &&
+                behaviour !=
+                    CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_LEARN_ABILITY &&
+                behaviour != CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_RADAR
+            )
+        ) {
+            return false;
+        }
 
-        // if (arg == 1 && behaviour != CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_NONE) {
-        //     return false;
-        // }
+        if (arg == 1 && behaviour != CLICK_BEHAVIORS.DOTA_CLICK_BEHAVIOR_NONE) {
+            return false;
+        }
 
         const cursor = GameUI.GetCursorPosition();
         const worldPos = GameUI.GetScreenWorldPosition(cursor);
